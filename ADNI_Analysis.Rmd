@@ -1,0 +1,50 @@
+ADNI Data Analysis
+========================================================
+This code caclculates the slope of the PET volumes from 4 visits and explores the relationship between this slope and the probabilistic grey matter segmentation at baseline. 
+
+Elizabeth Sweeney
+June 15, 2014
+
+
+Load required packages 
+```{r}
+library(oro.nifti)
+```
+
+Set working directory 
+```{r}
+setwd('/dexter/disk1/smart/AD/ADNI/Greven_ADNI')
+## setwd('/Users/elizabethsweeney/Desktop/Greven_ADNI')
+```
+
+Grab the subject ids 
+```{r}
+fileDir <- '/dexter/disk1/smart/AD/ADNI/Greven_ADNI'
+files <- dir(fileDir, pattern = "*.nii.gz", full.names = TRUE)
+subject.ids <- unlist(lapply(files, function(x) tail(unlist(strsplit(x, '/')), n=1)))
+subject.ids <- unique(unlist(lapply(subject.ids, function(x) substr(x, 1, 10))))
+```
+
+
+Read in PET volumes and calculate the slope at each voxel 
+```{r}
+times <- matrix(c(0,  12, 36, 48),  4, 1)
+intercept <- matrix(c(1,1,1,1), 4, 1) 
+design <- cbind(intercept, times)
+almost.beta <- solve(t(design)%*%design) %*% t(design)
+
+for(i in 1:length(subject.ids)){
+  pet1 <- readNIfTI(paste0(subject.ids[i], '_PET_coreg_to_MRI_MNI_1.nii.gz'), reorient = FALSE)[,,]
+  pet2 <- readNIfTI(paste0(subject.ids[i], '_PET_coreg_to_MRI_MNI_2.nii.gz'), reorient = FALSE)[,,]
+  pet3 <- readNIfTI(paste0(subject.ids[i], '_PET_coreg_to_MRI_MNI_3.nii.gz'), reorient = FALSE)[,,]
+	pet4 <- readNIfTI(paste0(subject.ids[i], '_PET_coreg_to_MRI_MNI_4.nii.gz'), reorient = FALSE)[,,]
+
+pet.image <- cbind(c(pet1), c(pet2), c(pet3), c(pet4))
+pet.slope <- almost.beta%*%t(pet.image)
+pet.slope.volume <- array(pet.slope[2,], dim = dim(pet1))
+
+writeNIfTI(pet.slope.volume, paste0(subject.ids[i], '_PETslope'))
+print(i)
+}
+```
+
