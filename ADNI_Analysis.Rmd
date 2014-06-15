@@ -26,7 +26,8 @@ subject.ids <- unique(unlist(lapply(subject.ids, function(x) substr(x, 1, 10))))
 ```
 
 
-Read in PET volumes and calculate the slope at each voxel 
+Read in PET volumes and calculate the slope at each voxel.  The slope volume is then saved. 
+
 ```{r}
 times <- matrix(c(0,  12, 36, 48),  4, 1)
 intercept <- matrix(c(1,1,1,1), 4, 1) 
@@ -48,3 +49,39 @@ print(i)
 }
 ```
 
+Explore relationship between PET slope and probabilistic grey matter segmentation in different ROIs
+
+Hippocampus
+```{r}
+grey.matter <- c()
+pet.slopes <- c()
+
+ROI <- readNIfTI('/dexter/disk1/smart/AD/ADNI/Greven_ADNI/AAL_masks/Hippocampus.nii.gz', reorient = FALSE)[,,]
+
+for(i in 1:length(subject.ids)){
+  PET <- readNIfTI(paste0(subject.ids[i], '_PETslope'), reorient = FALSE)[,,]
+  GM <- readNIfTI(paste0(subject.ids[i], '_MRI_segm_MNI_1.nii.gz'), reorient = FALSE)[,,]
+  grey.matter <- c(grey.matter, GM[ROI == 1]) 
+  pet.slopes <- c(pet.slopes, PET[ROI == 1])
+  print(i) 
+  }
+
+pdf('Hippo.pdf')
+down.samp <- sample(1:length(grey.matter), 5000, replace = FALSE)
+smooth <- loess.smooth(grey.matter, pet.slopes) 
+plot(pet.slopes[down.samp] ~ grey.matter[down.samp], pch = 20, main = 'Hippocampus', ylab = 'PET slope', xlab = c('Baseline Grey Matter'))
+lines(smooth, lwd = 3, col = 'red')
+dev.off()
+```
+
+Make PLOT of the PET slope volume for one subject 
+```{r}
+
+PET <- readNIfTI(paste0(subject.ids[1], '_PETslope'), reorient = FALSE)[,,]
+PET[is.na(PET)] <- 0
+
+pdf('petslopes.pdf')
+orthographic(PET, col = hotmetal())
+dev.off()  
+
+```
