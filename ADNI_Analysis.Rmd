@@ -9,6 +9,7 @@ June 15, 2014
 Load required packages 
 ```{r}
 library(oro.nifti)
+library(RColorBrewer)
 ```
 
 Set working directory 
@@ -44,6 +45,25 @@ pet.image <- cbind(c(pet1), c(pet2), c(pet3), c(pet4))
 pet.slope <- almost.beta%*%t(pet.image)
 pet.slope.volume <- array(pet.slope[2,], dim = dim(pet1))
 
+y.var <- apply(pet.image, 1, function(x) sd(x))
+t.stat <- (4 - 2)* pet.slope[2,]/(solve(t(times)%*%times)*y.var) 
+p.value <- dt(t.stat, df = 2)
+p.value <- array(p.value , dim = dim(pet1))
+
+writeNIfTI(p.value, paste0(subject.ids[i], '_pvalues'))
+
+correction.size <- mean( c(sum(pet1 > .01, na.rm = TRUE) , sum(pet2 > .01, na.rm = TRUE), sum(pet3 > .01, na.rm = TRUE), sum(pet4 > .01, na.rm = TRUE)))
+
+p.value.bonferoni.mask <- array(0, dim = dim(p.value))
+p.value[is.na(p.value)] <- 10
+p.value.bonferoni.mask[p.value  < .05/correction.size] <- 1
+pet4[is.na(pet4)] <- 0
+p.value.bonferoni.mask[pet4 < .01] <- 0
+
+
+writeNIfTI(p.value.bonferoni.mask, paste0(subject.ids[i], '_bonfmask'))
+
+
 writeNIfTI(pet.slope.volume, paste0(subject.ids[i], '_PETslope'))
 print(i)
 }
@@ -72,6 +92,26 @@ smooth <- loess.smooth(grey.matter, pet.slopes)
 plot(pet.slopes[down.samp] ~ grey.matter[down.samp], pch = 20, main = 'Hippocampus', ylab = 'PET slope', xlab = c('Baseline Grey Matter'))
 lines(smooth, lwd = 3, col = 'red')
 dev.off()
+
+pdf('SubjectsHippo.pdf')
+down.samp <- sample(1:length(grey.matter), 5000, replace = FALSE)
+plot(pet.slopes[down.samp] ~ grey.matter[down.samp], pch = 20, main = 'Hippocampus by Subject', ylab = 'PET slope', xlab = c('Baseline Grey Matter'))
+
+
+colors.mine <- rep(brewer.pal(9, 'Set1'), 12)
+
+for(i in 1:length(subject.ids)){
+  PET <- readNIfTI(paste0(subject.ids[i], '_PETslope'), reorient = FALSE)[,,]
+  GM <- readNIfTI(paste0(subject.ids[i], '_MRI_segm_MNI_1.nii.gz'), reorient =   FALSE)[,,] 
+  subj.grey.matter <- GM[ROI == 1]
+  subj.pet.slopes <- PET[ROI == 1]
+  smooth <- loess.smooth(subj.grey.matter, subj.pet.slopes) 
+  lines(smooth, lwd = 1, col = colors.mine[i])
+  print(i)
+}
+dev.off()
+
+
 ```
 
 Make PLOT of the PET slope volume for one subject 
@@ -83,5 +123,24 @@ PET[is.na(PET)] <- 0
 pdf('petslopes.pdf')
 orthographic(PET, col = hotmetal())
 dev.off()  
+
+mean.pet <- array(0, dim = dim(PET))
+for(i in 1:length(subject.ids)){
+  PET <- readNIfTI(paste0(subject.ids[i], '_PETslope'), reorient = FALSE)[,,]
+  PET[is.na(PET)] <- 0
+  mean.pet <- ((i-1)*mean.pet + PET)/i
+  }
+
+var.pet <- array(0, dim = dim(PET))
+for(i in 1:length(subject.ids)){
+  PET <- readNIfTI(paste0(subject.ids[i], '_PETslope'), reorient = FALSE)[,,]
+  PET[is.na(PET)] <- 0
+  var.pet <- ((i-1)*var.pet + (PET - mean.pet)^2)/i
+  }
+
+setwd('/dexter/disk1/smart/AD/ADNI/Greven_ADNI/Output')
+
+writeNIfTI(mean.pet,'meanPETslope')
+writeNIfTI(var.pet,'varPETslope')
 
 ```
