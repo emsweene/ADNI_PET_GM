@@ -10,6 +10,8 @@ Load required packages
 ```{r}
 library(oro.nifti)
 library(RColorBrewer)
+library(nplargedb)
+library(nplargela)
 ```
 
 Set working directory 
@@ -110,9 +112,37 @@ for(i in 1:length(subject.ids)){
   print(i)
 }
 dev.off()
+```
+
+Investigate relationship in the Hippocampus for only statistically significant slopes. (Used a Bonferoni correction over the entire brain, might consider just doing for the Hippocampus as next step)
+
+```{r}
+
+grey.matter.bonf <- c()
+pet.slopes.bonf <- c()
+
+ROI <- readNIfTI('/dexter/disk1/smart/AD/ADNI/Greven_ADNI/AAL_masks/Hippocampus.nii.gz', reorient = FALSE)[,,]
+
+for(i in 1:length(subject.ids)){
+  PET <- readNIfTI(paste0(subject.ids[i], '_PETslope'), reorient = FALSE)[,,]
+  GM <- readNIfTI(paste0(subject.ids[i], '_MRI_segm_MNI_1.nii.gz'), reorient = FALSE)[,,]
+  bonf.correct <- readNIfTI(paste0(subject.ids[i], '_bonfmask'), reorient = FALSE)[,,]
+  bonf.roi <- bonf.correct*ROI
+  grey.matter.bonf <- c(grey.matter.bonf, GM[bonf.roi == 1]) 
+  pet.slopes.bonf <- c(pet.slopes.bonf, PET[bonf.roi == 1])
+  print(i) 
+  }
+
+pdf('HippoBonf.pdf')
+down.samp <- sample(1:length(grey.matter.bonf), 5000, replace = FALSE)
+smooth <- loess.smooth(grey.matter.bonf, pet.slopes.bonf) 
+plot(pet.slopes.bonf[down.samp] ~ grey.matter.bonf[down.samp], pch = 20, main = 'Hippocampus Bonferoni', ylab = 'PET slope', xlab = c('Baseline Grey Matter'))
+lines(smooth, lwd = 3, col = 'red')
+dev.off()
 
 
 ```
+
 
 Make PLOT of the PET slope volume for one subject 
 ```{r}
@@ -142,5 +172,95 @@ setwd('/dexter/disk1/smart/AD/ADNI/Greven_ADNI/Output')
 
 writeNIfTI(mean.pet,'meanPETslope')
 writeNIfTI(var.pet,'varPETslope')
+
+```
+
+Read in the metadata.  Codebook for the metadata: 
+
+DXCHANGE: diagnosis of the subject at baseline
+
+ADAS11: Alzheimer's disease assessment scale, cognitive subscale (sometimes known as ADAS-Cog) http://www.ncbi.nlm.nih.gov/pubmed/15592137.
+It is a neurocognitive test.
+
+APGEN1 and APGEN2: genotype results for APOE variant in 1st and 2nd allelle. A subject is considered a carrier if he/she is APOE-epsilon 4 positive (ie.APGEN1 == 4 or APGEN2 == 4). See reviews for more details on the relevance of APOE.
+
+av: AV45-PET standard uptake value ratio (SUVR) value for the whole brain; for details and methods see ADNI website.
+
+pib: PiB-PET SUVR value for the whole brain; for details and methods see ADNI website.
+
+ABETA142: measurements of cerebro-spinal fluid (CSF) concentrations of Amyloid-beta (Abeta), in pg/mL. Values measured at baseline.
+
+VISCODE.pib: visit for which the PiB-PET scan was performed. Code is bl = baseline, m06 = month 6, m12 = month 12, etc.
+
+VISCODE.av: same for the AV45-PET scan
+
+PTAU181P: measurements of CSF concentrations of phosphorilated-tau protien, in pg/mL. Values measured at baseline.
+
+PTGENDER: subject gender (1 = Male, 2 = Female)
+
+PTEDUCAT: years of education
+
+Ab.status: a patient is considered Abeta positive (Ab.status = 1) if ABETA142 < 192 pg/mL and negative otherwise.
+
+```{r}
+meta.data <- read.table('Patient_metadata_3yrs_with_fw-ups.csv', header = TRUE, sep = ',')
+baseline.meta.data <- meta.data[meta.data$VISCODE == 'bl',]
+baseline.subjects <- merge(data.frame(Subject = c(subject.ids)), baseline.meta.data)
+
+summary(baseline.subjects)
+```
+
+Some plots of the baseline data 
+```{r}
+table(baseline.subjects$APGEN1,baseline.subjects$APGEN2)
+
+##     2  3  4
+##  2  1  6  3
+##  3  0 46 30
+##  4  0  0  8
+
+pdf('Abeta.pdf')
+hist(baseline.subjects$ABETA142, main = 'Amyloid-beta meaurements from the CSF', breaks = 25)
+dev.off()
+
+pdf('age.pdf')
+hist(baseline.subjects$AGE, main= 'Age', breaks = 25)
+dev.off()
+
+pdf('tau.pdf')
+hist(baseline.subjects$PTAU181P, main = 'CSF concentrations of phosphorilated-tau protien', breaks = 25)
+dev.off()
+
+pdf('logtau.pdf')
+hist(log(baseline.subjects$PTAU181P), main = 'Log CSF concentrations of phosphorilated-tau protien', breaks = 25)
+dev.off()
+
+table(baseline.subjects$PTGENDER)
+
+## Male = 1, Female = 2
+## 1  2 
+##63 31
+
+pdf('education.pdf')
+hist(baseline.subjects$PTEDUCAT, main = 'Years of Education')
+dev.off()
+
+table(baseline.subjects$DXCHANGE)
+          Stable: MCI 
+               53 
+           Stable: NL 
+               41 
+baseline.subjects$MCI <- rep(0, length(baseline.subjects$DXCHANGE))
+baseline.subjects$MCI[baseline.subjects$DXCHANGE == 'Stable: MCI'] <- 1
+
+pdf('ADAS11.pdf')
+hist(baseline.subjects$ADAS11, main = 'Alzheimers disease assessment scale')
+dev.off()
+
+```
+
+Preparing this data for use with the nplarge packages 
+
+```{r}
 
 ```
