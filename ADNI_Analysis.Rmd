@@ -435,9 +435,6 @@ pdf('beta_gen.pdf')
               col=clrs, breaks=brks)
     }
 dev.off()
-
-
-
 ```
 
 For a penalized fit...
