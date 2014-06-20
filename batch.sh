@@ -1,0 +1,1 @@
+Rscript Image_on_image_reg_simulation.R $1 $2 $3 $4 

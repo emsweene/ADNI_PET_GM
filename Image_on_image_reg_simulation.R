@@ -1,3 +1,5 @@
+temp <- commandArgs(TRUE)
+
 n <- temp[1] 
 dim_roi <- c(temp[2], temp[3], temp[4])
 
@@ -107,9 +109,12 @@ mem.it.up <- lineprof(time.it.up <- system.time(m <- nplarge_lm_fit(pred, resp))
 # penalized fit:
 ################################################################################
 
-pred$terms[[2]]$pen <- make_diffpen(pred$terms[[2]]$terms[[1]])
-pred$terms[[3]]$pen <- make_diffpen(pred$terms[[3]]$terms[[1]])
-
+pred$terms[[2]]$pen <- do.call(make_kron_sum, 
+                               lapply(pred$terms[[2]]$terms[1:n_dims], 
+                                      make_diffpen))
+pred$terms[[3]]$pen <- do.call(make_kron_sum, 
+                               lapply(pred$terms[[3]]$terms[1:n_dims], 
+                                      make_diffpen))
 
 mem.it.BFGS <- lineprof(time.it.BFGS <- system.time(test_opt <- nplarge_pen_fit(x=pred, y=resp, 
                                         optimizer="optim-BFGS",
