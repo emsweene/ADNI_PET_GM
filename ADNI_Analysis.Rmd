@@ -14,6 +14,7 @@ library(Matrix)
 library(nplargedb)
 library(nplargela)
 library(dplyr)
+library(lineproof)
 ```
 
 Set working directory 
@@ -343,9 +344,10 @@ bs_gen <- kron(bs_v, const(n, denv, by=baseline.subjects$PTGENDER))
 pred <- concat(intercept, bs_age, bs_mci, bs_edu, bs_gen)
 resp <- pet.slope.outcome 
 
-m <- nplarge_lm_fit(pred, resp)
 
+time.it.up <- system.time(m <- nplarge_lm_fit(pred, resp))
 ##get the fitted values 
+
 y_hat <- array(m$fitted.values, c(dim_roi, n))
 
 ```
