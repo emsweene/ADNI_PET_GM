@@ -41,7 +41,7 @@ echo $dimx
 echo $dimy
 echo $dimz
 
-qsub -cwd -l mem_free=25G,h_vmem=30G,h_fsize=10G,h_stack=256M batch.sh $subject $dimx $dimy $dixz
+qsub -cwd -l mem_free=100G,h_vmem=100G, batch.sh $subject $dimx $dimy $dimz
 
 done
 done 

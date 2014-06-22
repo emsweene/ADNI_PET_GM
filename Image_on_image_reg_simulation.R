@@ -1,7 +1,9 @@
 temp <- commandArgs(TRUE)
 
-n <- temp[1] 
-dim_roi <- c(temp[2], temp[3], temp[4])
+n <- as.numeric(temp[1])
+dim_roi <- c(as.numeric(temp[2]), as.numeric(temp[3]), as.numeric(temp[4]))
+
+print(temp)
 
 library("nplargedb")
 library("nplargela")
@@ -30,9 +32,9 @@ make_image <- function(dims){
 ################################################################################
 
 set.seed(19450508L)
-n <-  100
-dim_roi <- c(20, 20, 10)
-n_dims <- length(dim_roi) 
+n_dims <- length(dim_roi)
+
+print(dim_roi)
 
 dims <- lapply(dim_roi, function(x) seq_len(x))
 names(dims) <- paste0("dim", 1:n_dims)
@@ -105,27 +107,35 @@ resp <- as.vector(y_cube$mets$y)
 mem.it.up <- lineprof(time.it.up <- system.time(m <- nplarge_lm_fit(pred, resp)))
 
 
+print('boo')
+
 ################################################################################
 # penalized fit:
 ################################################################################
 
-pred$terms[[2]]$pen <- do.call(make_kron_sum, 
-                               lapply(pred$terms[[2]]$terms[1:n_dims], 
-                                      make_diffpen))
-pred$terms[[3]]$pen <- do.call(make_kron_sum, 
-                               lapply(pred$terms[[3]]$terms[1:n_dims], 
-                                      make_diffpen))
+pred$terms[[2]]$pen <- do.call(make_kron_sum,
+lapply(pred$terms[[2]]$terms[1:n_dims],
+make_diffpen))
+pred$terms[[3]]$pen <- do.call(make_kron_sum,
+lapply(pred$terms[[3]]$terms[1:n_dims],
+make_diffpen))
 
-mem.it.BFGS <- lineprof(time.it.BFGS <- system.time(test_opt <- nplarge_pen_fit(x=pred, y=resp, 
+print('the')
+mem.it.BFGS <- lineprof(time.it.BFGS <- system.time(test_opt <- nplarge_pen_fit(x=pred, y=resp,
                                         optimizer="optim-BFGS",
                                         optimizer.control=list(trace=3))))
+
+print('you')
 mem.it.bobyqa <- lineprof(time.it.bobyqa <- system.time(test_minqa <- nplarge_pen_fit(x=pred, y=resp, 
                                           optimizer="bobyqa",
                                           optimizer.control=list(iprint=2, maxfun=1e3))))
+
+print('hello')
 mem.it.nlminb <- lineprof(mem.it.nlminb <- system.time(test_nlmin <- nplarge_pen_fit(x=pred, y=resp, 
                                           optimizer="nlminb",
                                           optimizer.control=list(trace=1, eval.max=1e3)))) 
 
+print('hi')
 setwd('/dexter/disk1/smart/AD/ADNI/Greven_ADNI/Time_Mem')
 save(mem.it.up, time.it.up,
      mem.it.BFGS, time.it.BFGS,
