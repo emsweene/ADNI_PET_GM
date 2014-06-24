@@ -14,7 +14,7 @@ library(Matrix)
 library(nplargedb)
 library(nplargela)
 library(dplyr)
-library(lineproof)
+library(lineprof)
 ```
 
 Set working directory 
@@ -492,3 +492,166 @@ dev.off()
 
 ```
 
+
+Look only at the first year of follow up (only changes from baseline to 12 months)
+```{r}
+
+for(i in 1:length(subject.ids)){
+
+  pet1 <- readNIfTI(paste0(subject.ids[i], '_PET_coreg_to_MRI_MNI_1.nii.gz'), reorient = FALSE)[,,]
+  pet2 <- readNIfTI(paste0(subject.ids[i], '_PET_coreg_to_MRI_MNI_2.nii.gz'), reorient = FALSE)[,,]
+  pet.diff <- pet2 - pet1 
+
+  writeNIfTI(pet.diff, paste0(subject.ids[i], '_pet_diff_0_1'))
+
+  print(i)
+}
+```
+
+Hippocampus
+```{r}
+ 
+grey.matter <- c()
+pet.slopes <- c()
+
+ROI <- readNIfTI('/dexter/disk1/smart/AD/ADNI/Greven_ADNI/AAL_masks/Hippocampus.nii.gz', reorient = FALSE)[,,]
+
+for(i in 1:length(subject.ids)){
+  PET <- readNIfTI(paste0(subject.ids[i], '_pet_diff_0_1'), reorient = FALSE)[,,]
+  GM <- readNIfTI(paste0(subject.ids[i], '_MRI_segm_MNI_4.nii.gz'), reorient = FALSE)[,,]
+  grey.matter <- c(grey.matter, GM[ROI == 1]) 
+  pet.slopes <- c(pet.slopes, PET[ROI == 1])
+  print(i) 
+  }
+
+pdf('Hippo_0_1.pdf')
+down.samp <- sample(1:length(grey.matter), 5000, replace = FALSE)
+smooth <- loess.smooth(grey.matter, pet.slopes) 
+plot(pet.slopes[down.samp] ~ grey.matter[down.samp], pch = 20, main = 'Hippocampus', ylab = 'PET slope', xlab = c('Baseline Grey Matter'))
+lines(smooth, lwd = 3, col = 'red')
+dev.off()
+
+```
+
+Investigate all ROIs...
+
+```{r}
+ROIDir <- '/dexter/disk1/smart/AD/ADNI/Greven_ADNI/AAL_masks'
+ROIfiles <- dir(ROIDir, pattern = "*.nii.gz", full.names = TRUE)
+ROI.ids <- unlist(lapply(ROIfiles, function(x) tail(unlist(strsplit(x, '/')), n=1)))
+subject.ids <- unique(unlist(lapply(subject.ids, function(x) substr(x, 1, 10))))
+
+ROI <- readNIfTI('/dexter/disk1/smart/AD/ADNI/Greven_ADNI/AAL_masks/Hippocampus.nii.gz', reorient = FALSE)[,,]
+
+##Load in all subjects at the same time
+
+PET <- array(0, dim = c(dim(ROI), length(subject.ids)))
+GM1 <- array(0, dim = c(dim(ROI), length(subject.ids)))
+GM2 <- array(0, dim = c(dim(ROI), length(subject.ids)))
+GM3 <- array(0, dim = c(dim(ROI), length(subject.ids)))
+GM4 <- array(0, dim = c(dim(ROI), length(subject.ids)))
+
+for(i in 1:length(subject.ids)){
+  PET[,,,i] <- readNIfTI(paste0(subject.ids[i], '_pet_diff_0_1'), reorient = FALSE)[,,]
+  GM1[,,,i]  <- readNIfTI(paste0(subject.ids[i], '_MRI_segm_MNI_1.nii.gz'), reorient = FALSE)[,,]
+  GM2[,,,i]  <- readNIfTI(paste0(subject.ids[i], '_MRI_segm_MNI_2.nii.gz'), reorient = FALSE)[,,]
+  GM3[,,,i]  <- readNIfTI(paste0(subject.ids[i], '_MRI_segm_MNI_3.nii.gz'), reorient = FALSE)[,,]
+  GM4[,,,i]  <- readNIfTI(paste0(subject.ids[i], '_MRI_segm_MNI_4.nii.gz'), reorient = FALSE)[,,]
+  print(i)
+  }
+
+cor.matrix <- as.data.frame(matrix(0, length(ROI.ids), 5))
+for (i in 1:length(ROI.ids)){
+  ROI <- readNIfTI(paste0('/dexter/disk1/smart/AD/ADNI/Greven_ADNI/AAL_masks/', ROI.ids[i]), reorient = FALSE)[,,]
+  ROI.array <- array(ROI, dim = c(dim(ROI), length(subject.ids)))
+  pet <- PET[ROI.array == 1]
+  gm1 <- GM1[ROI.array == 1]
+  gm2 <- GM2[ROI.array == 1]
+  gm3 <- GM3[ROI.array == 1]
+  gm4 <- GM4[ROI.array == 1]
+  cor.matrix[i,1] <- cor(pet, gm1)
+  cor.matrix[i,2] <- cor(pet, gm2)
+  cor.matrix[i,3] <- cor(pet, gm3)
+  cor.matrix[i,4] <- cor(pet, gm4)
+  cor.matrix[i,5] <- ROI.ids[i]
+  print(i)
+}
+```
+
+
+
+Hippocampus MCI versus healthy controls 
+
+```{r}
+grey.matter.1 <- c()
+grey.matter.2 <- c()
+grey.matter.3 <- c()
+grey.matter.4 <- c()
+pet.slopes <- c()
+mci.status <- c()
+
+ROI <- readNIfTI('/dexter/disk1/smart/AD/ADNI/Greven_ADNI/AAL_masks/Hippocampus.nii.gz', reorient = FALSE)[,,]
+
+for(i in 1:length(subject.ids)){
+  PET <- readNIfTI(paste0(subject.ids[i], '_PETslope'), reorient = FALSE)[,,]
+  GM1 <- readNIfTI(paste0(subject.ids[i], '_MRI_segm_MNI_1.nii.gz'), reorient = FALSE)[,,]
+  GM2 <- readNIfTI(paste0(subject.ids[i], '_MRI_segm_MNI_1.nii.gz'), reorient = FALSE)[,,]
+  GM3 <- readNIfTI(paste0(subject.ids[i], '_MRI_segm_MNI_1.nii.gz'), reorient = FALSE)[,,]
+  GM4 <- readNIfTI(paste0(subject.ids[i], '_MRI_segm_MNI_1.nii.gz'), reorient = FALSE)[,,]
+  grey.matter.1 <- c(grey.matter.1, GM1[ROI == 1]) 
+  grey.matter.2 <- c(grey.matter.2, GM2[ROI == 1]) 
+  grey.matter.3 <- c(grey.matter.3, GM3[ROI == 1]) 
+  grey.matter.4 <- c(grey.matter.4, GM4[ROI == 1]) 
+  pet.slopes <- c(pet.slopes, PET[ROI == 1])
+  mci.status <- c(mci.status, rep(baseline.subjects$MCI[i], sum(ROI)))
+  print(i) 
+  }
+
+pdf('Hippo_mci_baseline.pdf')
+down.samp <- sample(1:length(grey.matter.1), 5000, replace = FALSE)
+smooth.mci <- loess.smooth(grey.matter.1[mci.status == 1], pet.slopes[mci.status == 1]) 
+smooth.no.mci <- loess.smooth(grey.matter.1[mci.status == 0], pet.slopes[mci.status == 0]) 
+plot(pet.slopes[down.samp] ~ grey.matter.1[down.samp], pch = 20, main = 'Hippocampus', ylab = 'PET slope', xlab = c('Baseline Grey Matter'))
+lines(smooth.mci, lwd = 3, col = 'red')
+lines(smooth.no.mci, lwd = 3, col = 'blue')
+dev.off()
+
+
+
+pdf('Hippo_mci_12.pdf')
+down.samp <- sample(1:length(grey.matter.2), 5000, replace = FALSE)
+smooth.mci <- loess.smooth(grey.matter.2[mci.status == 1], pet.slopes[mci.status == 1]) 
+smooth.no.mci <- loess.smooth(grey.matter.2[mci.status == 0], pet.slopes[mci.status == 0]) 
+plot(pet.slopes[down.samp] ~ grey.matter.2[down.samp], pch = 20, main = 'Hippocampus', ylab = 'PET slope', xlab = c('12 Month Grey Matter'))
+lines(smooth.mci, lwd = 3, col = 'red')
+lines(smooth.no.mci, lwd = 3, col = 'blue')
+dev.off()
+
+
+pdf('Hippo_mci_36.pdf')
+down.samp <- sample(1:length(grey.matter.3), 5000, replace = FALSE)
+smooth.mci <- loess.smooth(grey.matter.3[mci.status == 1], pet.slopes[mci.status == 1]) 
+smooth.no.mci <- loess.smooth(grey.matter.3[mci.status == 0], pet.slopes[mci.status == 0]) 
+plot(pet.slopes[down.samp] ~ grey.matter.3[down.samp], pch = 20, main = 'Hippocampus', ylab = 'PET slope', xlab = c('36 Month Grey Matter'))
+lines(smooth.mci, lwd = 3, col = 'red')
+lines(smooth.no.mci, lwd = 3, col = 'blue')
+dev.off()
+
+pdf('Hippo_mci_48.pdf')
+down.samp <- sample(1:length(grey.matter.4), 5000, replace = FALSE)
+smooth.mci <- loess.smooth(grey.matter.4[mci.status == 1], pet.slopes[mci.status == 1]) 
+smooth.no.mci <- loess.smooth(grey.matter.4[mci.status == 0], pet.slopes[mci.status == 0]) 
+plot(pet.slopes[down.samp] ~ grey.matter.4[down.samp], pch = 20, main = 'Hippocampus', ylab = 'PET slope', xlab = c('48 Month Grey Matter'))
+lines(smooth.mci, lwd = 3, col = 'red')
+lines(smooth.no.mci, lwd = 3, col = 'blue')
+dev.off()
+
+```
+
+Read in collaborator supplied rectangular ROI
+```{r}
+
+ROI.large <- readNIfTI('Precun_cube.nii', reorient = FALSE)[,,]
+ROI.small <- readNIfTI('Precun_cube_small.nii', reorient = FALSE)[,,]
+
+```
