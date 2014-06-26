@@ -573,9 +573,8 @@ pred$terms[[6]]$pen <- do.call(make_kron_sum,
                                lapply(pred$terms[[3]]$terms[1:n_dims], 
                                       make_diffpen))
 
-system.time(test_opt <- nplarge_pen_fit(x=pred, y=resp, optimizer="optim-BFGS", 
-                                        optimizer.control=list(trace=3)))
-
+system.time(test_opt <- nplarge_pen_fit(x=pred, y=resp, optimizer="bobyqa",
+                                        optimizer.control=list(iprint=2, maxfun=1e3)))
 y_hat <- array(test_opt$fitted.values, c(dim_roi, n))
 
 
@@ -746,4 +745,55 @@ system.time(test_opt <- nplarge_pen_fit(x=pred, y=resp, optimizer="optim-BFGS",
                                         optimizer.control=list(trace=3)))
 
 y_hat <- array(test_opt$fitted.values, c(dim_roi, n))
+
+
+set.seed(33)
+
+subjects <- sample(1:n, 10)
+slices <- sample(1:dim_roi[3], 10, replace = TRUE)
+clrs <- heat.colors(24)
+brks <- seq(min(resp), max(resp), l=25) 
+
+pdf('PENPETOUT__LARGEROI_scalar_reg_est.pdf')
+for(i in 1:10){
+  par(mfrow = c(1,2))
+  image(y_cube$mets$y[, , slices[i], subjects[i]], col=clrs, breaks=brks,
+        main="Change in PET")
+  image(y_hat[, , slices[i], subjects[i]], col=clrs, breaks=brks, 
+        main="Estimate")    
+}
+dev.off()
+
+
+
+test_opt$coefficients[1]
+coef_pet <- test_opt$coefficients[2 : cumsum(pred$c)[2]]
+coef_age <- test_opt$coefficients[c(cumsum(pred$c)[2] + 1) : cumsum(pred$c)[3]]
+coef_mci <- test_opt$coefficients[c(cumsum(pred$c)[3] + 1) : cumsum(pred$c)[4]]
+coef_edu <- test_opt$coefficients[c(cumsum(pred$c)[4] + 1) : cumsum(pred$c)[5]]
+coef_gen <- test_opt$coefficients[c(cumsum(pred$c)[5] + 1) : cumsum(pred$c)[6]]
+
+beta_pet_hat <- array(pred$terms[[2]]$getM(use_by=FALSE) %*% coef_pet,
+                      dim=c(dim_roi, n))
+beta_age_hat <- array(pred$terms[[3]]$getM(use_by=FALSE) %*% coef_age,
+                      dim=c(dim_roi, n))
+beta_mci_hat <- array(pred$terms[[4]]$getM(use_by=FALSE) %*% coef_mci,
+                      dim=c(dim_roi, n))
+beta_edu_hat <- array(pred$terms[[5]]$getM(use_by=FALSE) %*% coef_edu,
+                      dim=c(dim_roi, n))
+beta_gen_hat <- array(pred$terms[[6]]$getM(use_by=FALSE) %*% coef_gen,
+                      dim=c(dim_roi, n))
+
+pdf('PENPETOUT_LARGEROI_beta_gm.pdf')
+clrs <- heat.colors(24)
+slices <- round(seq(1, dim_roi[3]))
+par(mfrow = c(3,3))
+
+brks <- seq(min(beta_pet_hat), max(beta_pet_hat), l=25) 
+for(slice in slices){
+  image(beta_pet_hat[,,slice,1], main=bquote("beta_gm, slice "~.(slice)),
+        col=clrs, breaks=brks)
+}
+dev.off()
+
 
